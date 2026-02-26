@@ -66,6 +66,7 @@ MODEL = os.environ["MODEL_ID"]
 subprocess_shell = "PowerShell" if os.name == "nt" else "bash"
 # 用户运行的 shell 环境
 user_shell = "PowerShell" if os.getenv("PSModulePath") else ("cmd" if os.name == "nt" else "bash")
+# 设置系统提示词，包含运行环境信息
 SYSTEM = f"""You are a coding agent at {os.getcwd()}.
 OS: {platform.system()} {platform.version()}
 User Shell: {user_shell}
@@ -132,29 +133,45 @@ def run_bash(command: str) -> str:
 
 
 def print_messages_history(messages: list):
+    # 打印消息历史的函数
     """打印消息历史"""
+    # 打印消息总数
     print(f"\n[Messages History] Total messages: {len(messages)}")
+    # 遍历每条消息
     for i, msg in enumerate(messages):
+        # 打印消息序号和角色
         print(f"\n{i+1}. Role: {msg['role']}")
+        # 获取消息内容
         content = msg['content']
+        # 判断内容类型
         if isinstance(content, list):
+            # 打印列表类型信息
             print(f"   Content type: list (length: {len(content)})")
+            # 遍历列表中的每个块
             for j, block in enumerate(content):
+                # 判断块是否有type属性（对象类型）
                 if hasattr(block, 'type'):
+                    # 打印块类型
                     print(f"     Block {j+1}: {block.type}")
+                    # 如果有input属性，打印输入参数
                     if hasattr(block, 'input'):
                         print(f"       Input: {block.input}")
+                    # 如果有text属性，打印文本内容
                     if hasattr(block, 'text'):
                         print(f"       Text: {block.text[:100]}..." if len(block.text) > 100 else f"       Text: {block.text}")
+                # 判断块是否为字典类型（如工具结果）
                 elif isinstance(block, dict):
                     # 处理字典类型的内容（如工具结果）
                     print(f"     Block {j+1}: dict")
+                    # 打印字典的type字段
                     if 'type' in block:
                         print(f"       Type: {block['type']}")
+                    # 打印字典的content字段
                     if 'content' in block:
                         content_str = str(block['content'])
                         print(f"       Content: {content_str[:100]}..." if len(content_str) > 100 else f"       Content: {content_str}")
         else:
+            # 处理非列表类型的内容（纯文本）
             content_str = str(content)
             print(f"   Content: {content_str[:100]}..." if len(content_str) > 100 else f"   Content: {content_str}")
 
@@ -182,6 +199,8 @@ def agent_loop(messages: list):
         # 如果模型没有调用工具，则任务完成
         # If the model didn't call a tool, we're done
         # 如果停止原因不是"tool_use"
+
+        print(f"\nStop reason: {response.stop_reason}")
         if response.stop_reason != "tool_use":
             # 退出函数，结束循环
             return
@@ -194,14 +213,15 @@ def agent_loop(messages: list):
         for block in response.content:
             # 如果是工具调用块
             if block.type == "tool_use":
-                # 打印命令（黄色）
-
+                # 打印提示信息
                 print(f"\n执行指令：")
-                print(f"\033[33m$ {block.input['command']}\033[0m")
+                # 打印命令
+                print(f"$ {block.input['command']}")
                 # 执行bash命令
                 output = run_bash(block.input["command"])
-                # 打印输出结果（截取前200字符）
+                # 打印执行结果提示
                 print(f"\n执行结果：")
+                # 打印输出结果（截取前200字符）
                 print(output[:200])
                 # 将工具结果添加到结果列表
                 results.append({"type": "tool_result", "tool_use_id": block.id,
@@ -217,9 +237,9 @@ if __name__ == "__main__":
     history = []
     # 无限循环，等待用户输入
     while True:
-        # 读取用户输入（青色提示符）
+        # 读取用户输入
         try:
-            query = input("\033[36ms01 >> \033[0m")
+            query = input("s01 >> ")
         # 捕获EOF和Ctrl+C异常
         except (EOFError, KeyboardInterrupt):
             # 退出循环
